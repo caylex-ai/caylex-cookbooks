@@ -51,6 +51,10 @@ line. The runner submits the task, waits for a terminal status, obtains its
 `session_id`, downloads every page of the tool trace, and writes three files:
 `submission.json`, `task-status.json`, and `raw-trace.json`.
 
+`submission.json` and `task-status.json` are written as soon as each response is
+available. If the task fails before a trace exists, the runner preserves those
+files and writes `error.json` for diagnosis.
+
 ```bash
 export CAYLEX_PLATFORM_TOKEN="your_platform_access_token"
 export CAYLEX_API_KEY="ck_your_navigator_api_key"
@@ -119,7 +123,9 @@ python3 export_notion_sync.py \
 
 Database query responses remain structured under `database_queries`; they are
 not flattened into the page body. This preserves query provenance and avoids
-mixing database rows with page text.
+mixing database rows with page text. When multiple linked database pages expose
+the same data source, the query is attached to each canonical database and
+includes `shared_owner_ids`.
 
 ## Test
 

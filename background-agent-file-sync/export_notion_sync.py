@@ -244,19 +244,20 @@ def build_export(
             if isinstance(sources, str):
                 sources = [sources]
             sources = [source for source in sources if isinstance(source, str)]
-            owners = (
+            direct_owners = (
                 set().union(
                     *(direct_collection_owners.get(source, set()) for source in sources)
                 )
                 if sources
                 else set()
             )
+            owners = direct_owners
             if not owners and sources:
                 owners = set().union(
                     *(collection_references.get(source, set()) for source in sources)
                 )
             owners &= files_by_id.keys()
-            if len(owners) != 1:
+            if not owners or (not direct_owners and len(owners) != 1):
                 unmatched_tool_calls.append(
                     {
                         "tool_call_id": str(call.get("id") or ""),
@@ -267,18 +268,19 @@ def build_export(
                     }
                 )
                 continue
-            owner = files_by_id[next(iter(owners))]
             response = parsed_result(call)
-            owner["database_queries"].append(
-                {
-                    "tool_call_id": str(call.get("id") or ""),
-                    "data_source_urls": sources,
-                    "view_url": data.get("view_url"),
-                    "query": data.get("query"),
-                    "response": response,
-                    "row_links": collect_page_urls(response),
-                }
-            )
+            query_record = {
+                "tool_call_id": str(call.get("id") or ""),
+                "data_source_urls": sources,
+                "view_url": data.get("view_url"),
+                "query": data.get("query"),
+                "response": response,
+                "row_links": collect_page_urls(response),
+            }
+            if len(owners) > 1:
+                query_record["shared_owner_ids"] = sorted(owners)
+            for owner_id in sorted(owners):
+                files_by_id[owner_id]["database_queries"].append(dict(query_record))
 
         elif name == "notion-get-comments":
             page_id = normalize_notion_id(parameters.get("page_id"))

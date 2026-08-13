@@ -111,6 +111,8 @@ class RunBackgroundFileSyncTests(unittest.TestCase):
     def test_runs_submit_poll_and_trace_lifecycle(self) -> None:
         api = FakeAPI()
         statuses = []
+        submissions = []
+        terminal_statuses = []
 
         submission, status, trace = run_background_file_sync(
             base_url="https://api.example.test/api/v1",
@@ -128,6 +130,8 @@ class RunBackgroundFileSyncTests(unittest.TestCase):
             status_callback=lambda task_status, session_id: statuses.append(
                 (task_status, session_id)
             ),
+            submission_callback=submissions.append,
+            task_status_callback=terminal_statuses.append,
         )
 
         self.assertEqual(submission["resolved_skill"]["source"], "global")
@@ -138,6 +142,8 @@ class RunBackgroundFileSyncTests(unittest.TestCase):
             [("RUNNING", "session-1"), ("COMPLETED", "session-1")],
         )
         self.assertEqual(api.calls[0]["payload"]["skill_ref"], "example-sync-skill")
+        self.assertEqual(submissions[0]["task_id"], "task-1")
+        self.assertEqual(terminal_statuses[0]["status"], "COMPLETED")
 
 
 if __name__ == "__main__":

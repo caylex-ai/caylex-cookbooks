@@ -8,6 +8,7 @@ ROOT_ID = "11111111111111111111111111111111"
 CHILD_ID = "22222222222222222222222222222222"
 DATABASE_ID = "33333333333333333333333333333333"
 ROW_ID = "44444444444444444444444444444444"
+LINKED_DATABASE_ID = "55555555555555555555555555555555"
 SOURCE_URL = "collection://aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 
 
@@ -55,6 +56,12 @@ class ExportNotionSyncTests(unittest.TestCase):
                     "type": "database",
                     "id": DATABASE_ID,
                     "url": f"https://app.notion.com/p/{DATABASE_ID}",
+                },
+                {
+                    "title": "Linked database",
+                    "type": "database",
+                    "id": LINKED_DATABASE_ID,
+                    "url": f"https://app.notion.com/p/{LINKED_DATABASE_ID}",
                 },
             ],
             "unresolved_requests": [],
@@ -114,6 +121,20 @@ class ExportNotionSyncTests(unittest.TestCase):
                                 "title": "Inline database",
                                 "url": f"https://app.notion.com/p/{DATABASE_ID}",
                                 "text": database_content,
+                            },
+                        ),
+                        tool_call(
+                            "fetch-linked-db",
+                            "notion-fetch",
+                            {"id": LINKED_DATABASE_ID},
+                            {
+                                "metadata": {"type": "database"},
+                                "title": "Linked database",
+                                "url": f"https://app.notion.com/p/{LINKED_DATABASE_ID}",
+                                "text": (
+                                    f'<database url="https://app.notion.com/p/{LINKED_DATABASE_ID}">\n'
+                                    f'<data-source url="{{{{{SOURCE_URL}}}}}">'
+                                ),
                             },
                         ),
                         tool_call(
@@ -181,6 +202,14 @@ class ExportNotionSyncTests(unittest.TestCase):
         database = files[DATABASE_ID]
         self.assertEqual(len(database["database_queries"]), 1)
         self.assertEqual(database["database_queries"][0]["tool_call_id"], "query-db")
+        self.assertEqual(
+            database["database_queries"][0]["shared_owner_ids"],
+            [DATABASE_ID, LINKED_DATABASE_ID],
+        )
+        self.assertEqual(
+            files[LINKED_DATABASE_ID]["database_queries"][0]["tool_call_id"],
+            "query-db",
+        )
         self.assertEqual(
             database["database_queries"][0]["row_links"],
             [f"https://app.notion.com/p/{ROW_ID}"],

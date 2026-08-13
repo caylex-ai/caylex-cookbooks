@@ -173,6 +173,8 @@ def run_background_file_sync(
     sleep_fn: Callable[[float], None] = time.sleep,
     monotonic_fn: Callable[[], float] = time.monotonic,
     status_callback: Callable[[str, str | None], None] | None = None,
+    submission_callback: Callable[[dict[str, Any]], None] | None = None,
+    task_status_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     submission = submit_task(
         base_url=base_url,
@@ -185,6 +187,8 @@ def run_background_file_sync(
         model=model,
         request_fn=request_fn,
     )
+    if submission_callback:
+        submission_callback(submission)
     task_id = submission.get("task_id")
     if not isinstance(task_id, str) or not task_id:
         raise RunnerError("Task submission did not return task_id")
@@ -200,6 +204,8 @@ def run_background_file_sync(
         monotonic_fn=monotonic_fn,
         status_callback=status_callback,
     )
+    if task_status_callback:
+        task_status_callback(task_status)
     session_id = task_status.get("session_id")
     if not isinstance(session_id, str) or not session_id:
         raise RunnerError("Terminal task response did not include session_id")
@@ -301,11 +307,21 @@ def main(argv: list[str] | None = None) -> int:
                 json.dumps({"status": status, "session_id": session_id}),
                 flush=True,
             ),
+            submission_callback=lambda submission: write_json(
+                args.output_dir / "submission.json",
+                submission,
+            ),
+            task_status_callback=lambda task_status: write_json(
+                args.output_dir / "task-status.json",
+                task_status,
+            ),
         )
-        write_json(args.output_dir / "submission.json", submission)
-        write_json(args.output_dir / "task-status.json", task_status)
         write_json(args.output_dir / "raw-trace.json", trace)
     except (RunnerError, OSError, json.JSONDecodeError) as exc:
+        write_json(
+            args.output_dir / "error.json",
+            {"error": str(exc)},
+        )
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
