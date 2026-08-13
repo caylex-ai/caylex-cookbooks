@@ -124,5 +124,5 @@ mixing database rows with page text.
 ## Test
 
 ```bash
-python3 -m unittest -v
+python3 -m unittest discover -s tests -v
 ```
