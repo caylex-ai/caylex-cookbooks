@@ -42,32 +42,52 @@ The background agent's final report must contain an object beginning with:
 Each manifest resource must have a matching successful `notion-fetch` call in
 the trace.
 
-## Live usage
+## Recommended two-stage workflow
 
-Set the platform token in the environment rather than passing it on the command
-line:
+### 1. Submit and capture the background task
+
+Set credentials in the environment rather than passing them on the command
+line. The runner submits the task, waits for a terminal status, obtains its
+`session_id`, downloads every page of the tool trace, and writes three files:
+`submission.json`, `task-status.json`, and `raw-trace.json`.
+
+```bash
+export CAYLEX_PLATFORM_TOKEN="your_platform_access_token"
+export CAYLEX_API_KEY="ck_your_navigator_api_key"
+export CAYLEX_USER_EMAIL="user@example.com"
+
+python3 run_background_file_sync.py \
+  --prompt "Find and fetch every Notion page related to the requested topic." \
+  --skill-ref "your-notion-sync-skill" \
+  --approval-mode exclude \
+  --output-dir run-output
+```
+
+For a longer prompt, save it in a file and pass `--prompt-file prompt.txt`.
+The default API base URL is `https://api.caylex.ai/api/v1`; use `--base-url`
+for another environment.
+
+### 2. Build the resource-centric export
+
+Pass the captured task response and trace to the exporter:
+
+```bash
+python3 export_notion_sync.py \
+  --task-status-file run-output/task-status.json \
+  --trace-file run-output/raw-trace.json \
+  --output output/notion-files.json
+```
+
+## Export an existing task directly
+
+If a background task already exists, the exporter can fetch its status and
+trace itself:
 
 ```bash
 export CAYLEX_PLATFORM_TOKEN="your_platform_access_token"
 
 python3 export_notion_sync.py \
   --task-id "your-background-task-id" \
-  --output output/notion-files.json \
-  --raw-trace-output trace/raw-trace.json
-```
-
-The default API base URL is `https://api.caylex.ai/api/v1`. Use `--base-url`
-for another environment.
-
-## Offline usage
-
-Previously downloaded task-status and trace responses can be processed without
-network access:
-
-```bash
-python3 export_notion_sync.py \
-  --task-status-file task-status.json \
-  --trace-file raw-trace.json \
   --output output/notion-files.json
 ```
 
@@ -104,5 +124,5 @@ mixing database rows with page text.
 ## Test
 
 ```bash
-python3 -m unittest -v test_export_notion_sync.py
+python3 -m unittest -v
 ```
